@@ -1,0 +1,61 @@
+[project]
+name = "swe-eval"
+version = "0.1.0"
+description = "Simple commit-mining and Cursor evaluation pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.0",
+]
+
+[project.scripts]
+tau = "cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = [
+    "claude_runner",
+    "cli",
+    "config",
+    "cursor_runner",
+    "docker_solver",
+    "eval",
+    "github_miner",
+    "openrouter_client",
+    "openrouter_proxy",
+    "pipeline",
+    "solver_runner",
+    "task_generation",
+    "workspace",
+]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "claude_runner",
+    "cli",
+    "config",
+    "cursor_runner",
+    "docker_solver",
+    "eval",
+    "github_miner",
+    "openrouter_client",
+    "openrouter_proxy",
+    "pipeline",
+    "solver_runner",
+    "task_generation",
+    "workspace",
+]
