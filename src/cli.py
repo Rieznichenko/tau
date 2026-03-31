@@ -360,6 +360,13 @@ def _resolve_agent_source(raw_value: str, *, cwd: Path) -> DockerSolverAgentSour
 
 def _normalize_github_agent_source(raw_value: str) -> tuple[str | None, str]:
     cleaned = raw_value.strip().rstrip("/")
+    if "://" not in cleaned and cleaned.count("/") >= 1 and not cleaned.startswith("github.com/"):
+        parts = [part for part in cleaned.split("/") if part]
+        if len(parts) >= 2:
+            repo_path = "/".join(parts[:2])
+            return f"https://github.com/{repo_path}.git", "agent"
+        return None, "agent"
+
     parsed = urlparse(cleaned if "://" in cleaned else f"https://{cleaned}")
     if parsed.netloc.lower() != "github.com":
         return None, "agent"
