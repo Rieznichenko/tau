@@ -38,6 +38,10 @@ class SolveResult:
     reasoning_tokens: int | None = None
     cost: float | None = None
     tool_calls: int | None = None
+    rollout_output: str | None = None
+    rollout_format: str | None = None
+    rollout_filename: str | None = None
+    session_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -57,6 +61,9 @@ class SolveResult:
             "reasoning_tokens": self.reasoning_tokens,
             "cost": self.cost,
             "tool_calls": self.tool_calls,
+            "rollout_format": self.rollout_format,
+            "rollout_filename": self.rollout_filename,
+            "session_id": self.session_id,
         }
 
 

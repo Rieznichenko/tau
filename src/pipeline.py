@@ -152,6 +152,8 @@ def solve_task_run(*, task_name: str, solution_name: str, config: RunConfig) -> 
         )
 
     solution_paths.solution_diff_path.write_text(solve_result.solution_diff + "\n")
+    if solve_result.rollout_output:
+        solution_paths.rollout_jsonl_path.write_text(solve_result.rollout_output.rstrip("\n") + "\n")
     write_json(
         solution_paths.solve_json_path,
         {

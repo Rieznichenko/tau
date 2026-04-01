@@ -13,6 +13,7 @@ import textwrap
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from config import RunConfig
 from openrouter_proxy import OpenRouterProxy, SolveBudget
@@ -73,6 +74,10 @@ class _DockerSolverCommandResult:
     timed_out: bool = False
     killed_for_budget: bool = False
     sandbox_violation_reason: str | None = None
+    parsed_output: str | None = None
+    rollout_output: str | None = None
+    session_id: str | None = None
+    tool_calls: int | None = None
 
     @property
     def combined_output(self) -> str:
@@ -205,7 +210,7 @@ def solve_task_in_docker(
     return SolveResult(
         success=success,
         elapsed_seconds=elapsed,
-        raw_output=solver_run.combined_output,
+        raw_output=_build_solver_raw_output(solver_run),
         model=model,
         solution_diff=solution_diff,
         exit_reason=exit_reason,
@@ -218,7 +223,11 @@ def solve_task_in_docker(
         cache_write_tokens=usage_summary.cache_write_tokens,
         reasoning_tokens=usage_summary.reasoning_tokens,
         cost=usage_summary.cost,
-        tool_calls=None,
+        tool_calls=solver_run.tool_calls,
+        rollout_output=solver_run.rollout_output,
+        rollout_format="pi-json" if solver_run.rollout_output else None,
+        rollout_filename="rollout.jsonl" if solver_run.rollout_output else None,
+        session_id=solver_run.session_id,
     )
 
 
@@ -561,6 +570,7 @@ def _run_solver_command(
             stderr = f"{stderr}\nDocker tau solver timed out after {timeout}s".strip()
         if sandbox_violation_reason:
             stderr = f"{stderr}\nDocker tau solver sandbox violation: {sandbox_violation_reason}".strip()
+        parsed_output, rollout_output, session_id, tool_calls = _parse_pi_json_output(stdout)
         return _DockerSolverCommandResult(
             returncode=process.returncode or 0,
             stdout=stdout,
@@ -568,6 +578,10 @@ def _run_solver_command(
             timed_out=timed_out,
             killed_for_budget=killed_for_budget,
             sandbox_violation_reason=sandbox_violation_reason,
+            parsed_output=parsed_output,
+            rollout_output=rollout_output,
+            session_id=session_id,
+            tool_calls=tool_calls,
         )
 
 
@@ -689,12 +703,89 @@ def _build_solver_command(*, use_proxy_bridge: bool) -> str:
             'cd "$TAU_REPO_DIR"',
             (
                 'node "$TAU_AGENT_DIR/packages/coding-agent/dist/cli.js" '
-                f'--no-session --provider "{_PROXY_PROVIDER_NAME}" --model "{_PROXY_MODEL_NAME}" -p "$PROMPT"'
+                f'--mode json --no-session --provider "{_PROXY_PROVIDER_NAME}" --model "{_PROXY_MODEL_NAME}" -p "$PROMPT"'
             ),
         ],
     ]
     flattened_parts = [command_parts[0], *command_parts[1]]
     return " && ".join(flattened_parts)
+
+
+def _build_solver_raw_output(solver_run: _DockerSolverCommandResult) -> str:
+    parts: list[str] = []
+    if solver_run.parsed_output:
+        parts.append(solver_run.parsed_output.strip())
+    if solver_run.stderr:
+        parts.append(solver_run.stderr.strip())
+    if parts:
+        return "\n\n".join(part for part in parts if part)
+    return solver_run.combined_output
+
+
+def _parse_pi_json_output(raw_output: str) -> tuple[str, str | None, str | None, int | None]:
+    if not raw_output.strip():
+        return "", None, None, None
+
+    rollout_lines: list[str] = []
+    final_output = ""
+    text_deltas: list[str] = []
+    session_id: str | None = None
+    tool_call_count = 0
+
+    for line in raw_output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+
+        rollout_lines.append(json.dumps(payload, sort_keys=True))
+
+        event_type = payload.get("type")
+        if event_type == "session":
+            payload_session_id = payload.get("id")
+            if isinstance(payload_session_id, str):
+                session_id = payload_session_id
+        elif event_type == "message_update":
+            assistant_event = payload.get("assistantMessageEvent")
+            if isinstance(assistant_event, dict) and assistant_event.get("type") == "text_delta":
+                delta = assistant_event.get("delta")
+                if isinstance(delta, str):
+                    text_deltas.append(delta)
+        elif event_type == "turn_end":
+            message = payload.get("message")
+            message_text = _extract_pi_message_text(message)
+            if message_text:
+                final_output = message_text
+        elif event_type == "tool_execution_start":
+            tool_call_count += 1
+
+    if not final_output:
+        final_output = "".join(text_deltas).strip()
+    rollout_output = "\n".join(rollout_lines).strip() or None
+    return final_output, rollout_output, session_id, tool_call_count or None
+
+
+def _extract_pi_message_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if not isinstance(content, list):
+        return ""
+
+    parts: list[str] = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "text":
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text)
+    return "\n".join(parts).strip()
 
 
 def _resolve_proxy_transport(*, proxy_socket_dir: Path) -> _DockerProxyTransport:

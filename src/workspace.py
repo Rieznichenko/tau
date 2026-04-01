@@ -53,6 +53,7 @@ class SolutionPaths:
     repo_dir: Path
     solution_diff_path: Path
     solve_json_path: Path
+    rollout_jsonl_path: Path
 
 
 @dataclass(slots=True)
@@ -120,6 +121,7 @@ def build_solution_paths(task_paths: TaskPaths, solution_name: str) -> SolutionP
         repo_dir=root / "repo",
         solution_diff_path=root / "solution.diff",
         solve_json_path=root / "solve.json",
+        rollout_jsonl_path=root / "rollout.jsonl",
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import shlex
 import subprocess
@@ -8,6 +9,7 @@ import tempfile
 import textwrap
 import time
 from pathlib import Path
+from typing import Any
 
 from config import RunConfig
 from docker_solver import (
@@ -57,6 +59,7 @@ CMD ["bash"]
 _CONTAINER_ROOT = "/work"
 _CONTAINER_PROMPT_FILE = f"{_CONTAINER_ROOT}/task.txt"
 _CURSOR_CLI_PATH = "/root/.local/bin/agent"
+_CURSOR_ROLLOUT_FILENAME = "rollout.jsonl"
 
 
 def solve_task_with_cursor_in_docker(
@@ -116,13 +119,19 @@ def solve_task_with_cursor_in_docker(
         solution_diff = git_diff(repo_dir)
     exit_reason = _resolve_exit_reason(command_result)
     success = command_result.returncode == 0 and exit_reason == COMPLETED_EXIT_REASON
+    raw_output = _build_cursor_raw_output(command_result)
     return SolveResult(
         success=success,
         elapsed_seconds=elapsed,
-        raw_output=command_result.combined_output,
+        raw_output=raw_output,
         model=model,
         solution_diff=solution_diff,
         exit_reason=exit_reason,
+        tool_calls=command_result.tool_calls,
+        rollout_output=command_result.rollout_output,
+        rollout_format="stream-json" if command_result.rollout_output else None,
+        rollout_filename=_CURSOR_ROLLOUT_FILENAME if command_result.rollout_output else None,
+        session_id=command_result.session_id,
     )
 
 
@@ -135,12 +144,20 @@ class _CursorCommandResult:
         stderr: str,
         timed_out: bool = False,
         sandbox_violation_reason: str | None = None,
+        parsed_output: str | None = None,
+        rollout_output: str | None = None,
+        session_id: str | None = None,
+        tool_calls: int | None = None,
     ) -> None:
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
         self.timed_out = timed_out
         self.sandbox_violation_reason = sandbox_violation_reason
+        self.parsed_output = parsed_output
+        self.rollout_output = rollout_output
+        self.session_id = session_id
+        self.tool_calls = tool_calls
 
     @property
     def combined_output(self) -> str:
@@ -299,12 +316,17 @@ def _run_cursor_command(
             stderr = f"{stderr}\nCursor solver timed out after {timeout}s".strip()
         if sandbox_violation_reason:
             stderr = f"{stderr}\nCursor solver sandbox violation: {sandbox_violation_reason}".strip()
+        parsed_output, session_id, tool_calls = _parse_cursor_stream_output(stdout)
         return _CursorCommandResult(
             returncode=process.returncode or 0,
             stdout=stdout,
             stderr=stderr,
             timed_out=timed_out,
             sandbox_violation_reason=sandbox_violation_reason,
+            parsed_output=parsed_output,
+            rollout_output=stdout.strip() or None,
+            session_id=session_id,
+            tool_calls=tool_calls,
         )
 
 
@@ -315,10 +337,80 @@ def _build_cursor_command(*, model: str | None) -> str:
         mkdir -p "$HOME" && \
         PROMPT="$(cat {shlex.quote(_CONTAINER_PROMPT_FILE)})" && \
         cd "$HOME" && \
-        {shlex.quote(_CURSOR_CLI_PATH)} -p --force --trust --sandbox disabled --output-format text{model_args} \
+        {shlex.quote(_CURSOR_CLI_PATH)} -p --force --trust --sandbox disabled --output-format stream-json{model_args} \
             --workspace {shlex.quote(_CONTAINER_REPO_DIR)} "$PROMPT"
         """
     ).strip()
+
+
+def _build_cursor_raw_output(command_result: _CursorCommandResult) -> str:
+    parts: list[str] = []
+    if command_result.parsed_output:
+        parts.append(command_result.parsed_output.strip())
+    if command_result.stderr:
+        parts.append(command_result.stderr.strip())
+    if parts:
+        return "\n\n".join(part for part in parts if part)
+    return command_result.combined_output
+
+
+def _parse_cursor_stream_output(raw_output: str) -> tuple[str, str | None, int | None]:
+    text = raw_output.strip()
+    if not text:
+        return "", None, None
+
+    assistant_messages: list[str] = []
+    final_result = ""
+    session_id: str | None = None
+    tool_call_count = 0
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+
+        payload_session_id = payload.get("session_id")
+        if session_id is None and isinstance(payload_session_id, str):
+            session_id = payload_session_id
+
+        event_type = payload.get("type")
+        if event_type == "assistant":
+            message_text = _extract_cursor_message_text(payload.get("message"))
+            if message_text:
+                assistant_messages.append(message_text)
+        elif event_type == "result":
+            result_text = payload.get("result")
+            if isinstance(result_text, str):
+                final_result = result_text.strip()
+        elif event_type == "tool_call" and payload.get("subtype") == "started":
+            tool_call_count += 1
+
+    parsed_output = final_result or "\n\n".join(message for message in assistant_messages if message).strip()
+    return parsed_output, session_id, tool_call_count or None
+
+
+def _extract_cursor_message_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if not isinstance(content, list):
+        return ""
+
+    parts: list[str] = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "text":
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text)
+    return "\n".join(parts).strip()
 
 
 def _resolve_exit_reason(command_result: _CursorCommandResult) -> str:
