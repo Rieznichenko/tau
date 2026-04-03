@@ -286,7 +286,10 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                          state.current_king.commitment if state.current_king else None,
                          len(state.queue),
                          len(state.seen_hotkeys))
-                _refresh_queue(subtensor=subtensor, github_client=github_client, config=config, state=state)
+                chain_submissions = _fetch_chain_submissions(
+                    subtensor=subtensor, github_client=github_client, config=config
+                )
+                _refresh_queue(chain_submissions=chain_submissions, config=config, state=state)
                 _ensure_king(state=state)
 
                 # Ensure king SHA is resolved to full 40-char form
@@ -297,6 +300,15 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                     )
                     if full:
                         state.current_king.commit_sha = full
+
+                # Check if the king has updated their commitment on chain
+                # (e.g. pushed a new agent version). Auto-update without
+                # requiring a duel so the king always runs their latest code.
+                if state.current_king:
+                    _maybe_update_king_commitment(
+                        chain_submissions=chain_submissions,
+                        state=state,
+                    )
 
                 if state.current_king is None:
                     log.info("No valid king or challengers found on subnet %s yet; sleeping", config.validate_netuid)
@@ -650,12 +662,17 @@ def _run_mock_validation_round(
     )
 
 
-def _refresh_queue(*, subtensor, github_client: httpx.Client, config: RunConfig, state: ValidatorState) -> None:
+def _refresh_queue(
+    *,
+    chain_submissions: list[ValidatorSubmission],
+    config: RunConfig,
+    state: ValidatorState,
+) -> None:
     known_hotkeys = set(state.seen_hotkeys)
     if state.current_king:
         known_hotkeys.add(state.current_king.hotkey)
     known_hotkeys.update(submission.hotkey for submission in state.queue)
-    submissions = _fetch_chain_submissions(subtensor=subtensor, github_client=github_client, config=config)
+    submissions = chain_submissions
     queue_limit = config.validate_queue_size
     for submission in submissions:
         if submission.hotkey in known_hotkeys:
@@ -803,6 +820,31 @@ def _ensure_king(*, state: ValidatorState) -> None:
     if not state.queue:
         return
     state.current_king = state.queue.pop(0)
+
+
+def _maybe_update_king_commitment(
+    *,
+    chain_submissions: list[ValidatorSubmission],
+    state: ValidatorState,
+) -> None:
+    """If the king has updated their chain commitment, update the king in state.
+
+    This lets the king push improved agent code without losing the throne.
+    """
+    king = state.current_king
+    if king is None:
+        return
+
+    for sub in chain_submissions:
+        if sub.hotkey == king.hotkey and sub.commit_sha != king.commit_sha:
+            log.info(
+                "King %s updated commitment on chain: %s -> %s",
+                king.hotkey,
+                king.commitment,
+                sub.commitment,
+            )
+            state.current_king = sub
+            break
 
 
 def _pop_next_valid_challenger(
