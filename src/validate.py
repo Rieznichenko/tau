@@ -289,6 +289,15 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                 _refresh_queue(subtensor=subtensor, github_client=github_client, config=config, state=state)
                 _ensure_king(state=state)
 
+                # Ensure king SHA is resolved to full 40-char form
+                # (may be short if loaded from state written by older code)
+                if state.current_king and len(state.current_king.commit_sha) < 40:
+                    full = _resolve_public_commit(
+                        github_client, state.current_king.repo_full_name, state.current_king.commit_sha
+                    )
+                    if full:
+                        state.current_king.commit_sha = full
+
                 if state.current_king is None:
                     log.info("No valid king or challengers found on subnet %s yet; sleeping", config.validate_netuid)
                     _save_state(paths.state_path, state)
