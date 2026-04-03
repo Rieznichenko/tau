@@ -772,7 +772,8 @@ def _build_submission(
         return None
 
     repo_full_name, commit_sha = parsed
-    if not _is_public_commit(github_client, repo_full_name, commit_sha):
+    full_sha = _resolve_public_commit(github_client, repo_full_name, commit_sha)
+    if full_sha is None:
         log.warning("Skipping non-public submission for hotkey %s: %s@%s", hotkey, repo_full_name, commit_sha)
         return None
 
@@ -781,7 +782,7 @@ def _build_submission(
         uid=int(uid),
         repo_full_name=repo_full_name,
         repo_url=f"https://github.com/{repo_full_name}.git",
-        commit_sha=commit_sha,
+        commit_sha=full_sha,
         commitment=commitment,
         commitment_block=commitment_block,
     )
@@ -1056,16 +1057,23 @@ def _parse_submission_commitment(raw_value: str) -> tuple[str, str] | None:
     return None
 
 
-def _is_public_commit(github_client: httpx.Client, repo_full_name: str, commit_sha: str) -> bool:
+def _resolve_public_commit(github_client: httpx.Client, repo_full_name: str, commit_sha: str) -> str | None:
+    """Return the full 40-char SHA if the commit exists in a public repo, else None."""
     repo_response = github_client.get(f"/repos/{repo_full_name}")
     if repo_response.status_code != 200:
-        return False
+        return None
     repo_payload = repo_response.json()
     if repo_payload.get("private") is not False:
-        return False
+        return None
 
     commit_response = github_client.get(f"/repos/{repo_full_name}/commits/{commit_sha}")
-    return commit_response.status_code == 200
+    if commit_response.status_code != 200:
+        return None
+    return commit_response.json().get("sha", commit_sha)
+
+
+def _is_public_commit(github_client: httpx.Client, repo_full_name: str, commit_sha: str) -> bool:
+    return _resolve_public_commit(github_client, repo_full_name, commit_sha) is not None
 
 
 def _open_subtensor(config: RunConfig):

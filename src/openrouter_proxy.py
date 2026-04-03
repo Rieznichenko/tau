@@ -208,6 +208,14 @@ class OpenRouterProxy:
         class Handler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
 
+            def handle(self) -> None:
+                # Override to suppress BrokenPipeError from wfile.flush()
+                # in handle_one_request after do_POST returns.
+                try:
+                    super().handle()
+                except BrokenPipeError:
+                    pass
+
             def do_GET(self) -> None:  # noqa: N802
                 self._handle()
 
