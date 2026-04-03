@@ -237,6 +237,9 @@ class OpenRouterProxy:
             if os.path.exists(self.unix_socket_path):
                 os.unlink(self.unix_socket_path)
             self._unix_server = _ReusableThreadingUnixServer(self.unix_socket_path, Handler)
+            # Make socket world-writable so Docker containers (which drop
+            # CAP_DAC_OVERRIDE) can connect from any UID.
+            os.chmod(self.unix_socket_path, 0o777)
             self._unix_thread = threading.Thread(target=self._unix_server.serve_forever, daemon=True)
             self._unix_thread.start()
             log.debug("OpenRouter proxy listening on unix socket %s", self.unix_socket_path)
