@@ -506,7 +506,9 @@ def _run_solver_command(
     ]
     if use_proxy_bridge:
         _copy_proxy_bridge_script(container_id=container_id)
-        env_cmd[20:20] = [
+        # Insert proxy env vars before the container_id arg
+        _cid_idx = env_cmd.index(container_id)
+        env_cmd[_cid_idx:_cid_idx] = [
             "-e",
             f"TAU_PROXY_BRIDGE={_CONTAINER_PROXY_BRIDGE_FILE}",
             "-e",
@@ -1081,8 +1083,25 @@ def _materialize_agent_source(*, config: RunConfig, target_dir: Path) -> Path:
                 output = ((clone_result.stdout or "") + (clone_result.stderr or "")).strip()
                 raise RuntimeError(f"Failed to clone agent repository: {output[-500:]}")
 
+            # Resolve short SHA to full SHA via ls-remote, since git fetch --depth=1
+            # requires a full SHA or ref name (short SHAs fail as remote refs).
+            commit_ref = agent.commit_sha
+            if len(commit_ref) < 40:
+                ls_result = _run(
+                    ["git", "ls-remote", "origin"],
+                    cwd=target_dir,
+                    timeout=60,
+                    check=False,
+                )
+                if ls_result.returncode == 0 and ls_result.stdout:
+                    for line in ls_result.stdout.strip().splitlines():
+                        full_sha = line.split("\t")[0]
+                        if full_sha.startswith(commit_ref):
+                            commit_ref = full_sha
+                            break
+
             fetch_result = _run(
-                ["git", "fetch", "--depth=1", "origin", agent.commit_sha],
+                ["git", "fetch", "--depth=1", "origin", commit_ref],
                 cwd=target_dir,
                 timeout=180,
                 check=False,
