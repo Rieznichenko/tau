@@ -917,6 +917,8 @@ def _proxy_bridge_script() -> str:
                             pass
                         break
                     destination.sendall(chunk)
+            except OSError:
+                pass
             finally:
                 try:
                     destination.close()
