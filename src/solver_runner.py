@@ -130,30 +130,28 @@ def solve_task(
 def build_solver_prompt(task: GeneratedTask) -> str:
     return textwrap.dedent(
         f"""\
-        You are solving a mined software engineering task from inside the
-        repository root for this checkout.
+        You are solving a software engineering task. Your diff will be scored by
+        positional line-level exact matching against a reference solution.
+        Score = matched_lines / max(your_lines, reference_lines).
 
         Task:
         {task.prompt_text}
 
         Strategy:
-        1. First, read the files that need to change. Understand the existing code
-           before making any edits.
-        2. Identify the minimal set of changes needed to accomplish the task.
-        3. Make precise, targeted edits — change only what is necessary.
-        4. After editing, verify your changes are correct by reading the modified files.
+        1. Read the files that need to change IN FULL before editing.
+        2. Identify the MINIMAL set of changes — every extra line hurts your score.
+        3. Make precise, targeted edits. Match existing code style exactly.
+        4. Stop. Do not summarize, verify, or re-read files.
 
-        Requirements:
-        - Treat the current workspace as the repository itself and work directly in it.
-        - Inspect the repository and implement the requested behavior in this checkout.
-        - Stay scoped to this repository; do not rely on sibling workspaces or external patches.
-        - Keep changes focused on the task. Do not refactor, reformat, or reorganize code
-          beyond what the task requires.
-        - Do not add explanatory markdown files or comments.
-        - Do not modify files unrelated to the task (e.g., CI configs, READMEs, lockfiles).
-        - Prefer editing existing files over creating new ones when possible.
-        - Match the existing code style (indentation, naming conventions, patterns).
-        - When finished, briefly summarize what you changed.
+        Critical rules:
+        - Change ONLY what the task requires. No cosmetic changes, no refactoring.
+        - Match indentation, quotes, semicolons, naming, and spacing character-for-character.
+        - Do not add comments, docstrings, type annotations, or error handling.
+        - Do not reorder imports, rename variables, or fix unrelated issues.
+        - Process files in alphabetical path order. Edit top-to-bottom within each file.
+        - Do not run tests, builds, or linters.
+        - Do not create new files unless the task explicitly requires it.
+        - When unsure about a change, leave the code as-is.
         """,
     )
 
