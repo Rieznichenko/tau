@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -350,15 +351,22 @@ def _setup_logging(*, debug: bool) -> None:
     root = logging.getLogger()
     root.setLevel(level)
 
-    if not root.handlers:
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            datefmt="%H:%M:%S",
-        )
-    else:
-        for handler in root.handlers:
-            handler.setLevel(level)
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    # Always ensure there is a stderr handler with our format.
+    has_stderr = any(
+        isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr
+        for h in root.handlers
+    )
+    if not has_stderr:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setLevel(level)
+        handler.setFormatter(fmt)
+        root.addHandler(handler)
+    for handler in root.handlers:
+        handler.setLevel(level)
 
     logging.getLogger("httpx").setLevel(logging.INFO if debug else logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

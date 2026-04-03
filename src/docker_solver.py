@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import shlex
 import shutil
 import subprocess
@@ -133,6 +134,8 @@ def solve_task_in_docker(
         prefix="swe-eval-proxy-socket-",
         dir=_shared_docker_temp_root(),
     ) as proxy_socket_dir:
+        # Widen permissions so the Docker container user can reach the socket.
+        os.chmod(proxy_socket_dir, 0o755)
         agent_src_path = Path(agent_src_dir)
         agent_dir = _materialize_agent_source(config=config, target_dir=agent_src_path)
         proxy_transport = _resolve_proxy_transport(proxy_socket_dir=Path(proxy_socket_dir))

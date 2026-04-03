@@ -261,13 +261,16 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
 
     paths = _prepare_validate_paths(config.validate_root)
     state = _load_state(paths.state_path)
+    github_headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "swe-eval-validate",
+    }
+    if config.github_token:
+        github_headers["Authorization"] = f"Bearer {config.github_token}"
     github_client = httpx.Client(
         base_url="https://api.github.com",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "swe-eval-validate",
-        },
+        headers=github_headers,
         follow_redirects=True,
         timeout=config.http_timeout,
     )
@@ -275,8 +278,14 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
 
     try:
         with _open_subtensor(config) as subtensor:
+            log.info("Validator connected to chain; starting main loop for netuid %s", config.validate_netuid)
             while True:
                 current_block = subtensor.block
+                log.info("Poll cycle block=%s king=%s queue=%d seen=%d",
+                         current_block,
+                         state.current_king.commitment if state.current_king else None,
+                         len(state.queue),
+                         len(state.seen_hotkeys))
                 _refresh_queue(subtensor=subtensor, github_client=github_client, config=config, state=state)
                 _ensure_king(state=state)
 
@@ -310,10 +319,14 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                     state=state,
                 )
                 if challenger is None:
+                    log.info("No challenger in queue; sleeping %ds", config.validate_poll_interval_seconds)
                     _save_state(paths.state_path, state)
                     time.sleep(config.validate_poll_interval_seconds)
                     continue
 
+                log.info("Starting duel: king=%s vs challenger=%s (uid %s)",
+                         state.current_king.commitment if state.current_king else "?",
+                         challenger.commitment, challenger.uid)
                 duel = _run_duel(
                     subtensor=subtensor,
                     github_client=github_client,
@@ -322,6 +335,8 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                     challenger=challenger,
                 )
                 duel_count += 1
+                log.info("Duel %d complete: wins=%d losses=%d ties=%d king_replaced=%s",
+                         duel_count, duel.wins, duel.losses, duel.ties, duel.king_replaced)
                 _write_duel(paths, duel)
                 _save_state(paths.state_path, state)
                 if config.validate_max_duels is not None and duel_count >= config.validate_max_duels:
