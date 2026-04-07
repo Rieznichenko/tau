@@ -434,7 +434,7 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                     "king_uid": state.current_king.uid if state.current_king else None,
                     "king_repo": state.current_king.repo_full_name if state.current_king else None,
                     "challengers": [
-                        {"uid": c.uid, "repo": c.repo_full_name} for c in epoch_challengers
+                        {"uid": c.uid, "repo": c.repo_full_name, "commitment_block": c.commitment_block} for c in epoch_challengers
                     ],
                     "started_at": _timestamp(),
                     "per_challenger": {},
@@ -450,6 +450,7 @@ def validate_loop_run(config: RunConfig) -> ValidateStageResult:
                         hk: {
                             "uid": cd["submission"].uid,
                             "repo": cd["submission"].repo_full_name,
+                            "commitment_block": cd["submission"].commitment_block,
                             "wins": cd["wins"],
                             "losses": cd["losses"],
                             "ties": cd["ties"],
@@ -1432,13 +1433,28 @@ def _fetch_chain_submissions(
         hotkey = str(hotkey)
         if hotkey in seen_hotkeys:
             continue
+        commit_block = current_block
+        try:
+            meta = subtensor.commitments.get_commitment_metadata(
+                config.validate_netuid, hotkey
+            )
+            if isinstance(meta, list):
+                # Multiple commits: use the earliest block, but the commitment
+                # string from get_all_commitments is the current one on chain.
+                blocks = [int(m["block"]) for m in meta if isinstance(m, dict) and "block" in m]
+                if blocks:
+                    commit_block = min(blocks)
+            elif isinstance(meta, dict) and "block" in meta:
+                commit_block = int(meta["block"])
+        except Exception:
+            log.debug("Could not fetch commitment metadata for %s; using current block", hotkey)
         submission = _build_submission(
             subtensor=subtensor,
             github_client=github_client,
             config=config,
             hotkey=hotkey,
             commitment=str(commitment),
-            commitment_block=current_block,
+            commitment_block=commit_block,
         )
         if submission is not None:
             submissions.append(submission)

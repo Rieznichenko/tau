@@ -29,5 +29,5 @@ tau validate \
   --max-challengers 3 \
   --eval-window-seconds 3600 \
   --epsilon 0.05 \
-  --min-rounds 10 \
+  --min-rounds 25 \
   >> "$LOGFILE" 2>&1
