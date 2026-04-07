@@ -13,6 +13,9 @@ import type { Attachment } from "./utils/attachment-utils.js";
 import { i18n } from "./utils/i18n.js";
 
 const BREAKPOINT = 800; // px - switch between overlay and side-by-side
+const STORAGE_KEY = "pi-chat-panel-artifacts-width";
+const MIN_PANEL_WIDTH = 200;
+const DEFAULT_PANEL_RATIO = 0.5;
 
 @customElement("pi-chat-panel")
 export class ChatPanel extends LitElement {
@@ -23,9 +26,16 @@ export class ChatPanel extends LitElement {
 	@state() private artifactCount = 0;
 	@state() private showArtifactsPanel = false;
 	@state() private windowWidth = 0;
+	@state() private artifactsPanelWidth = 0;
+	@state() private isDragging = false;
+
+	private dragCleanup: ((pointerId: number) => void) | null = null;
 
 	private resizeHandler = () => {
 		this.windowWidth = window.innerWidth;
+		if (this.artifactsPanelWidth > 0) {
+			this.artifactsPanelWidth = this.clampPanelWidth(this.artifactsPanelWidth);
+		}
 		this.requestUpdate();
 	};
 
@@ -35,15 +45,21 @@ export class ChatPanel extends LitElement {
 
 	override connectedCallback() {
 		super.connectedCallback();
-		this.windowWidth = window.innerWidth; // Set initial width after connection
+		this.windowWidth = window.innerWidth;
+		const savedWidth = this.loadPanelWidth();
+		if (savedWidth !== null) {
+			this.artifactsPanelWidth = savedWidth;
+		}
 		window.addEventListener("resize", this.resizeHandler);
 		this.style.display = "flex";
 		this.style.flexDirection = "column";
 		this.style.height = "100%";
 		this.style.minHeight = "0";
-		// Update width after initial render
 		requestAnimationFrame(() => {
 			this.windowWidth = window.innerWidth;
+			if (this.artifactsPanelWidth > 0) {
+				this.artifactsPanelWidth = this.clampPanelWidth(this.artifactsPanelWidth);
+			}
 			this.requestUpdate();
 		});
 	}
@@ -52,6 +68,83 @@ export class ChatPanel extends LitElement {
 		super.disconnectedCallback();
 		window.removeEventListener("resize", this.resizeHandler);
 	}
+
+	private loadPanelWidth(): number | null {
+		try {
+			const saved = localStorage.getItem(STORAGE_KEY);
+			return saved ? parseInt(saved, 10) : null;
+		} catch {
+			return null;
+		}
+	}
+
+	private savePanelWidth(width: number) {
+		try {
+			localStorage.setItem(STORAGE_KEY, String(Math.round(width)));
+		} catch {
+			// Ignore storage failures (e.g. private browsing)
+		}
+	}
+
+	private clampPanelWidth(width: number): number {
+		const containerWidth = this.offsetWidth || this.windowWidth;
+		const maxWidth = containerWidth * 0.8;
+		const minWidth = Math.min(MIN_PANEL_WIDTH, containerWidth * 0.2);
+		return Math.max(minWidth, Math.min(width, maxWidth));
+	}
+
+	private getDefaultPanelWidth(): number {
+		const containerWidth = this.offsetWidth || this.windowWidth;
+		return Math.round(containerWidth * DEFAULT_PANEL_RATIO);
+	}
+
+	private onResizeStart = (e: PointerEvent) => {
+		e.preventDefault();
+		this.isDragging = true;
+		const startX = e.clientX;
+		const startWidth = this.artifactsPanelWidth;
+
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+
+		const handle = e.currentTarget as HTMLElement;
+		handle.setPointerCapture(e.pointerId);
+
+		const onPointerMove = (event: PointerEvent) => {
+			const delta = startX - event.clientX;
+			this.artifactsPanelWidth = this.clampPanelWidth(startWidth + delta);
+		};
+
+		const stopDrag = (pointerId: number) => {
+			if (this.dragCleanup) {
+				this.dragCleanup(pointerId);
+				this.dragCleanup = null;
+			}
+		};
+
+		this.dragCleanup = (pointerId: number) => {
+			this.isDragging = false;
+			document.body.style.cursor = "";
+			document.body.style.userSelect = "";
+			handle.releasePointerCapture(pointerId);
+			window.removeEventListener("pointermove", onPointerMove);
+			window.removeEventListener("pointerup", onPointerUp);
+			window.removeEventListener("pointercancel", onPointerCancel);
+			this.savePanelWidth(this.artifactsPanelWidth);
+		};
+
+		const onPointerUp = (event: PointerEvent) => stopDrag(event.pointerId);
+		const onPointerCancel = (event: PointerEvent) => stopDrag(event.pointerId);
+
+		window.addEventListener("pointermove", onPointerMove);
+		window.addEventListener("pointerup", onPointerUp);
+		window.addEventListener("pointercancel", onPointerCancel);
+	};
+
+	private onResizeDoubleClick = () => {
+		this.artifactsPanelWidth = this.getDefaultPanelWidth();
+		this.savePanelWidth(this.artifactsPanelWidth);
+	};
 
 	async setAgent(
 		agent: Agent,
@@ -171,36 +264,56 @@ export class ChatPanel extends LitElement {
 			this.artifactsPanel.overlay = isMobile;
 		}
 
+		const showSplit = !isMobile && this.showArtifactsPanel && this.hasArtifacts;
+
+		if (showSplit && this.artifactsPanelWidth === 0) {
+			this.artifactsPanelWidth = this.getDefaultPanelWidth();
+		}
+
 		return html`
 			<div class="relative w-full h-full overflow-hidden flex">
-				<div class="h-full" style="${!isMobile && this.showArtifactsPanel && this.hasArtifacts ? "width: 50%;" : "width: 100%;"}">
-						${this.agentInterface}
-					</div>
+				<div class="h-full" style="${showSplit ? "flex: 1; min-width: 0;" : "width: 100%;"}">
+					${this.agentInterface}
+				</div>
 
-					<!-- Floating pill when artifacts exist and panel is collapsed -->
-					${
-						this.hasArtifacts && !this.showArtifactsPanel
-							? html`
-								<button
-									class="absolute z-30 top-4 left-1/2 -translate-x-1/2 pointer-events-auto"
-									@click=${() => {
-										this.showArtifactsPanel = true;
-										this.requestUpdate();
-									}}
-									title=${i18n("Show artifacts")}
-								>
-									${Badge(html`
-										<span class="inline-flex items-center gap-1">
-											<span>${i18n("Artifacts")}</span>
-											<span class="text-[10px] leading-none bg-primary-foreground/20 text-primary-foreground rounded px-1 font-mono tabular-nums">${this.artifactCount}</span>
-										</span>
-									`)}
-								</button>
-							`
-							: ""
-					}
+				${
+					this.hasArtifacts && !this.showArtifactsPanel
+						? html`
+							<button
+								class="absolute z-30 top-4 left-1/2 -translate-x-1/2 pointer-events-auto"
+								@click=${() => {
+									this.showArtifactsPanel = true;
+									this.requestUpdate();
+								}}
+								title=${i18n("Show artifacts")}
+							>
+								${Badge(html`
+									<span class="inline-flex items-center gap-1">
+										<span>${i18n("Artifacts")}</span>
+										<span class="text-[10px] leading-none bg-primary-foreground/20 text-primary-foreground rounded px-1 font-mono tabular-nums">${this.artifactCount}</span>
+									</span>
+								`)}
+							</button>
+						`
+						: ""
+				}
 
-				<div class="h-full ${isMobile ? "absolute inset-0 pointer-events-none" : ""}" style="${!isMobile ? (!this.hasArtifacts || !this.showArtifactsPanel ? "display: none;" : "width: 50%;") : ""}">
+				${showSplit
+					? html`<div
+						style="width: 6px; cursor: col-resize; flex-shrink: 0; position: relative; z-index: 10;"
+						class="h-full group"
+						@pointerdown=${this.onResizeStart}
+						@dblclick=${this.onResizeDoubleClick}
+					>
+						<div
+							style="position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; transition: background-color 150ms;"
+							class="${this.isDragging ? "bg-primary" : "bg-border group-hover:bg-primary"}"
+						></div>
+					</div>`
+					: ""
+				}
+
+				<div class="h-full ${isMobile ? "absolute inset-0 pointer-events-none" : ""}" style="${!isMobile ? (!this.hasArtifacts || !this.showArtifactsPanel ? "display: none;" : `width: ${this.artifactsPanelWidth}px; flex-shrink: 0;`) : ""}">
 					${this.artifactsPanel}
 				</div>
 			</div>

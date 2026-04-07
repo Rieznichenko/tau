@@ -109,7 +109,7 @@ _SKIP_FILENAMES = frozenset({
     "go.sum", "flake.lock",
 })
 
-MIN_CODE_CHANGED_LINES = 5
+MIN_CODE_CHANGED_LINES = 100
 MIN_CODE_FILES = 1
 
 

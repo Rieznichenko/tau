@@ -80,6 +80,7 @@ class RunConfig:
     validate_min_rounds: int = 5
     validate_max_rounds: int = 50
     validate_copy_similarity_threshold: float = 0.90
+    validate_max_challengers: int = 3
     validate_eval_window_seconds: int = 900
     validate_weight_interval_blocks: int = 360
     validate_poll_interval_seconds: int = 30

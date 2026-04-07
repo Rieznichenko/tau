@@ -148,10 +148,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="If mean king-challenger patch similarity exceeds this, disqualify as a copy.",
     )
     validate.add_argument(
+        "--max-challengers",
+        type=int,
+        default=3,
+        help="Maximum number of challengers to evaluate simultaneously per epoch.",
+    )
+    validate.add_argument(
         "--eval-window-seconds",
         type=int,
         default=900,
-        help="Maximum wall-clock time to spend deciding one duel.",
+        help="Maximum wall-clock time to spend on one evaluation epoch.",
     )
     validate.add_argument(
         "--weight-interval-blocks",
@@ -398,6 +404,7 @@ def _build_validate_config(args: argparse.Namespace) -> RunConfig:
         validate_min_rounds=args.min_rounds,
         validate_max_rounds=args.max_rounds,
         validate_copy_similarity_threshold=args.copy_similarity_threshold,
+        validate_max_challengers=args.max_challengers,
         validate_eval_window_seconds=args.eval_window_seconds,
         validate_weight_interval_blocks=args.weight_interval_blocks,
         validate_poll_interval_seconds=args.poll_interval_seconds,

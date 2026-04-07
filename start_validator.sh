@@ -10,14 +10,24 @@ export R2_ACCESS_KEY_ID=$(doppler secrets get R2_ACCESS_KEY_ID -p arbos -c dev -
 export R2_SECRET_ACCESS_KEY=$(doppler secrets get R2_SECRET_ACCESS_KEY -p arbos -c dev --plain)
 export R2_BUCKET_NAME=$(doppler secrets get R2_BUCKET_NAME -p arbos -c dev --plain)
 export R2_BUCKET_URL=$(doppler secrets get R2_BUCKET_URL -p arbos -c dev --plain)
+export R2_URL=$(doppler secrets get R2_URL -p arbos -c dev --plain)
 export R2_PUBLIC_URL=$(doppler secrets get R2_PUBLIC_URL -p arbos -c dev --plain)
+export TMC_API_KEY=$(doppler secrets get TMC_API_KEY -p arbos -c dev --plain)
 export PYTHONUNBUFFERED=1
 
 LOGFILE=/home/const/subnet66/tau/validator.log
+
+# Kill orphaned containers from prior runs
+docker ps -q --filter "name=swe-eval-" | xargs -r docker kill 2>/dev/null || true
+docker ps -aq --filter "name=swe-eval-" | xargs -r docker rm -f 2>/dev/null || true
+
 echo "$(date -Iseconds) Starting validator..." >> "$LOGFILE"
 tau validate \
   --wallet-name sn66_owner \
   --wallet-hotkey default \
-  --mock-set-weights \
-  --concurrency 10 \
+  --concurrency 20 \
+  --max-challengers 3 \
+  --eval-window-seconds 3600 \
+  --epsilon 0.05 \
+  --min-rounds 10 \
   >> "$LOGFILE" 2>&1
