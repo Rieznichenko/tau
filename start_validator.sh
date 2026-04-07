@@ -28,6 +28,7 @@ tau validate \
   --concurrency 20 \
   --max-challengers 3 \
   --eval-window-seconds 3600 \
-  --epsilon 0.05 \
+  --epsilon 0.15 \
+  --alpha 0.15 \
   --min-rounds 25 \
   >> "$LOGFILE" 2>&1
