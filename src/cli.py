@@ -104,42 +104,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--subtensor-endpoint",
         help="Optional websocket endpoint that overrides --network for chain access.",
     )
-    validate.add_argument("--rounds", type=int, default=3, help="Maximum scored rounds per duel (legacy; prefer --max-rounds).")
     validate.add_argument(
-        "--concurrency",
+        "--duel-rounds",
         type=int,
-        default=_DEFAULT_CONCURRENCY,
-        help="Concurrent live tasks per duel (default: min(cpu_count, 8)).",
+        default=25,
+        help="Fixed number of scored rounds per challenger duel.",
     )
     validate.add_argument(
-        "--epsilon",
-        type=float,
-        default=0.15,
-        help="SPRT epsilon: required win-rate margin above 0.5 to dethrone the king.",
-    )
-    validate.add_argument(
-        "--alpha",
-        type=float,
-        default=0.05,
-        help="SPRT alpha: false-positive rate (probability of wrongly dethroning the king).",
-    )
-    validate.add_argument(
-        "--beta",
-        type=float,
-        default=0.10,
-        help="SPRT beta: false-negative rate (probability of failing to dethrone a better agent).",
-    )
-    validate.add_argument(
-        "--min-rounds",
+        "--win-margin",
         type=int,
-        default=5,
-        help="Minimum scored rounds before SPRT can render a decision.",
-    )
-    validate.add_argument(
-        "--max-rounds",
-        type=int,
-        default=50,
-        help="Safety cap on total scored rounds per duel.",
+        default=4,
+        help="Extra wins above 50%% needed to dethrone (threshold = N//2 + K + 1).",
     )
     validate.add_argument(
         "--copy-similarity-threshold",
@@ -148,16 +123,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="If mean king-challenger patch similarity exceeds this, disqualify as a copy.",
     )
     validate.add_argument(
-        "--max-challengers",
+        "--max-concurrency",
         type=int,
-        default=3,
-        help="Maximum number of challengers to evaluate simultaneously per epoch.",
+        default=5,
+        help="Maximum number of parallel challenger duels.",
     )
     validate.add_argument(
-        "--eval-window-seconds",
+        "--task-pool-target",
         type=int,
-        default=900,
-        help="Maximum wall-clock time to spend on one evaluation epoch.",
+        default=30,
+        help="Number of pre-solved tasks to maintain in the pool.",
     )
     validate.add_argument(
         "--weight-interval-blocks",
@@ -396,16 +371,11 @@ def _build_validate_config(args: argparse.Namespace) -> RunConfig:
         validate_netuid=args.netuid,
         validate_network=args.network,
         validate_subtensor_endpoint=args.subtensor_endpoint,
-        validate_rounds=args.rounds,
-        validate_concurrency=args.concurrency,
-        validate_epsilon=args.epsilon,
-        validate_alpha=args.alpha,
-        validate_beta=args.beta,
-        validate_min_rounds=args.min_rounds,
-        validate_max_rounds=args.max_rounds,
+        validate_duel_rounds=args.duel_rounds,
+        validate_win_margin=args.win_margin,
         validate_copy_similarity_threshold=args.copy_similarity_threshold,
-        validate_max_challengers=args.max_challengers,
-        validate_eval_window_seconds=args.eval_window_seconds,
+        validate_max_concurrency=args.max_concurrency,
+        validate_task_pool_target=args.task_pool_target,
         validate_weight_interval_blocks=args.weight_interval_blocks,
         validate_poll_interval_seconds=args.poll_interval_seconds,
         validate_queue_size=args.queue_size,

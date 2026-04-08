@@ -72,16 +72,11 @@ class RunConfig:
     validate_netuid: int = 66
     validate_network: str | None = None
     validate_subtensor_endpoint: str | None = None
-    validate_rounds: int = 3
-    validate_concurrency: int = field(default_factory=lambda: min(os.cpu_count() or 4, 8))
-    validate_epsilon: float = 0.15
-    validate_alpha: float = 0.05
-    validate_beta: float = 0.10
-    validate_min_rounds: int = 5
-    validate_max_rounds: int = 50
+    validate_duel_rounds: int = 25
+    validate_win_margin: int = 4
     validate_copy_similarity_threshold: float = 0.90
-    validate_max_challengers: int = 3
-    validate_eval_window_seconds: int = 900
+    validate_max_concurrency: int = 5
+    validate_task_pool_target: int = 30
     validate_weight_interval_blocks: int = 360
     validate_poll_interval_seconds: int = 30
     validate_queue_size: int | None = None
