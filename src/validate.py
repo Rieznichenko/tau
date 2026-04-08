@@ -945,7 +945,7 @@ def _maybe_set_weights(*, subtensor, config, state, current_block):
 # ---------------------------------------------------------------------------
 
 def _build_cursor_config(config: RunConfig) -> RunConfig:
-    return replace(config, solver_backend="cursor", solve_agent="cursor", solver_agent_source=None, solver_model=config.solver_model or _CURSOR_MODEL_FOR_SONNET4)
+    return replace(config, solver_backend="cursor", solve_agent="cursor", solver_agent_source=None, solver_model=_CURSOR_MODEL_FOR_SONNET4)
 
 def _build_agent_config(config: RunConfig, sub: ValidatorSubmission) -> RunConfig:
     src = SolverAgentSource(raw=sub.agent_ref, kind="github_repo", repo_url=sub.repo_url, agent_subdir=_DEFAULT_GITHUB_AGENT_SUBDIR, commit_sha=sub.commit_sha)
