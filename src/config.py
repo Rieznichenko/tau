@@ -77,7 +77,7 @@ class RunConfig:
     validate_win_margin: int = 4
     validate_max_concurrency: int = 20
     validate_task_pool_target: int = 60
-    validate_pool_filler_concurrency: int = 3
+    validate_pool_filler_concurrency: int = 8
     validate_weight_interval_blocks: int = 360
     validate_poll_interval_seconds: int = 30
     validate_queue_size: int | None = None
