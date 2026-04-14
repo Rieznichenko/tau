@@ -364,8 +364,10 @@ export class AgentSession {
 	 * Cumulative read counter for the SN66/tau context-budget enforcement.
 	 * Counts total read() calls since the last edit/write. Resets on each edit/write.
 	 * Blocks reads after 2 unedited reads to prevent context inflation.
+	 * After 5 consecutive blocks, throws to terminate the session and capture whatever was edited.
 	 */
 	private _readsSinceLastEdit = 0;
+	private _consecutiveBlocks = 0;
 
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
@@ -374,14 +376,21 @@ export class AgentSession {
 			if (toolCall.name === "read") {
 				this._readsSinceLastEdit++;
 				if (this._readsSinceLastEdit > 2) {
+					this._consecutiveBlocks++;
+					if (this._consecutiveBlocks >= 5) {
+						// Agent is stuck in an apology loop — terminate to save API budget.
+						throw new Error("Read limit exceeded: too many consecutive reads without edits. Session terminated.");
+					}
 					return {
 						block: true,
-						reason: `BLOCKED: You've made ${this._readsSinceLastEdit} read() calls without any edit() in between. You MUST call edit() or write() on one of the files you've already read before reading another file.`,
+						reason: `BLOCKED (attempt ${this._consecutiveBlocks}/5): You've made ${this._readsSinceLastEdit} read() calls without any edit(). IMMEDIATELY call edit() or write() on one of the already-read files. Do NOT apologize — call edit() NOW.`,
 					};
 				}
+				this._consecutiveBlocks = 0;
 			} else if (toolCall.name === "edit" || toolCall.name === "write") {
-				// Reset counter after each edit — agent may now read up to 2 more files
+				// Reset both counters after each edit
 				this._readsSinceLastEdit = 0;
+				this._consecutiveBlocks = 0;
 			}
 
 			const runner = this._extensionRunner;
