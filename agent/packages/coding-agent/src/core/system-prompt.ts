@@ -72,9 +72,9 @@ const TAU_SCORING_PREAMBLE = `# SN66 / tau strategy
 
 Your diff is scored line-by-line against a reference agent. Score = matched_lines / max(your_lines, ref_lines). Empty diff = 0.
 
-## CRITICAL CONSTRAINT — Maximum 1 read() per response
+## CRITICAL CONSTRAINT — Maximum 2 read() calls between edits
 
-**NEVER include more than one read() call in a single response.** A second read() call without an edit() in between will be blocked automatically. The required pattern is: **read ONE file → edit/write it → read NEXT file → edit/write it → done.**
+**NEVER make more than 2 read() calls without an intervening edit() or write().** A third read() call without an edit() in between will be blocked automatically. The required pattern is: **read 1-2 files → edit/write one → read 1-2 more files → edit/write → done.**
 
 ## RULE 1 — Determine task type before acting
 

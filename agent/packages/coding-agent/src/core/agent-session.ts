@@ -363,24 +363,24 @@ export class AgentSession {
 	/**
 	 * Cumulative read counter for the SN66/tau context-budget enforcement.
 	 * Counts total read() calls since the last edit/write. Resets on each edit/write.
-	 * Blocks reads after the first unedited read to prevent context inflation.
+	 * Blocks reads after 2 unedited reads to prevent context inflation.
 	 */
 	private _readsSinceLastEdit = 0;
 
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
-			// SN66 enforcement: block multiple read() calls without intervening edits.
-			// Reading multiple files without editing inflates context past 8K tokens → API errors.
+			// SN66 enforcement: block 3+ read() calls without intervening edits.
+			// Reading many files without editing inflates context past budget → API errors.
 			if (toolCall.name === "read") {
 				this._readsSinceLastEdit++;
-				if (this._readsSinceLastEdit > 1) {
+				if (this._readsSinceLastEdit > 2) {
 					return {
 						block: true,
-						reason: `BLOCKED: You've made ${this._readsSinceLastEdit} read() calls without any edit() in between. Reading multiple files without editing causes API context overflow errors. You MUST call edit() on one of the files you've already read before reading another file.`,
+						reason: `BLOCKED: You've made ${this._readsSinceLastEdit} read() calls without any edit() in between. You MUST call edit() or write() on one of the files you've already read before reading another file.`,
 					};
 				}
 			} else if (toolCall.name === "edit" || toolCall.name === "write") {
-				// Reset counter after each edit — agent may now read one more file
+				// Reset counter after each edit — agent may now read up to 2 more files
 				this._readsSinceLastEdit = 0;
 			}
 
