@@ -35,12 +35,24 @@ function grepTaskKeywords(cwd: string, taskText: string): string {
 				}
 			} catch {}
 		}
-		if (fileHits.size === 0) return "";
 		const sorted = [...fileHits.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 20);
 		let result = "\n\n## Files matching task keywords\n\nThese files contain identifiers from the task. Start here:\n";
 		for (const [file, keywords] of sorted) {
 			result += `- ${file} (${keywords.join(", ")})\n`;
 		}
+		// Always list .github/workflows/ files if they exist — relevant for CI/CD tasks
+		try {
+			const workflows = execSync(
+				`ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null | head -10`,
+				{ cwd, timeout: 2000, encoding: "utf-8" }
+			).trim();
+			if (workflows) {
+				result += `\n## Existing CI/CD workflow files (check .github/workflows/ for CI tasks)\n`;
+				for (const wf of workflows.split("\n").filter(Boolean)) {
+					result += `- ${wf.replace("./", "")}\n`;
+				}
+			}
+		} catch {}
 		return result + "\n";
 	} catch {}
 	return "";
@@ -85,11 +97,12 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - Use short old_string (3-5 lines) — more reliable than large blocks.
 - If an edit() fails: re-read the file then retry once.
 
-**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce"): Read the file first, then write() the COMPLETE replacement.
+**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"): Read the file first, then write() the COMPLETE replacement.
 - **Use write() to replace the entire file** with the old structure + new feature combined. Do NOT use multiple edit() calls to add a feature.
 - Keep all existing #includes, utilities, and code style from the original file.
 - Implement ALL acceptance criteria items.
 - Use the SIMPLEST possible data structures (map/dict over struct, list over class hierarchy).
+- For CI/CD/workflow tasks: check `.github/workflows/` for existing YAML files to modify, and create new `.github/workflows/*.yml` files as needed.
 
 ## RULE 2 — Cover ALL files the task implies
 
