@@ -84,9 +84,9 @@ const TAU_SCORING_PREAMBLE = `# SN66 / tau strategy
 
 Your diff is scored line-by-line against a reference agent. Score = matched_lines / max(your_lines, ref_lines). Empty diff = 0.
 
-## CRITICAL CONSTRAINT — Maximum 4 read() calls between edits
+## CRITICAL CONSTRAINT — Maximum 2 read() calls between edits
 
-**NEVER make more than 4 read() calls without an intervening edit() or write().** A fifth read() call without an edit() in between will be blocked. After 5 consecutive blocks the session terminates. When blocked: DO NOT apologize, DO NOT explain — immediately call edit() or write() on a file you've already read. The required pattern is: **read 1-4 files → edit/write one → read 1-4 more files → edit/write → done.**
+**NEVER make more than 2 read() calls without an intervening edit() or write().** Excess reads will be blocked. After 5 consecutive blocks the session terminates. When blocked: DO NOT apologize, DO NOT explain — immediately call edit() or write() on a file you've already read. The required pattern is: **read 1-2 files → edit/write one → read 1-2 more files → edit/write → done.**
 
 ## RULE 1 — Determine task type before acting
 
