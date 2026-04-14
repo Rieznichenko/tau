@@ -102,6 +102,7 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - Keep all existing #includes, utilities, and code style from the original file.
 - Implement ALL acceptance criteria items.
 - Use the SIMPLEST possible data structures (map/dict over struct, list over class hierarchy).
+- **Prefer flat inline code**: keep logic inside the primary function (main() for C/C++, the component body for React/JS) using local variables. Only extract helper functions or use global state when the task explicitly requires a multi-function architecture or the component/function is very large.
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
 ## RULE 2 — Cover ALL files the task implies
