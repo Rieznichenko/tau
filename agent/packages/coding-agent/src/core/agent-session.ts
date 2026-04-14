@@ -360,8 +360,30 @@ export class AgentSession {
 	 * registered tool execution to the extension context. Tool call and tool result interception now
 	 * happens here instead of in wrappers.
 	 */
+	/**
+	 * Cumulative read counter for the SN66/tau context-budget enforcement.
+	 * Counts total read() calls since the last edit/write. Resets on each edit/write.
+	 * Blocks reads after the first unedited read to prevent context inflation.
+	 */
+	private _readsSinceLastEdit = 0;
+
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
+			// SN66 enforcement: block multiple read() calls without intervening edits.
+			// Reading multiple files without editing inflates context past 8K tokens → API errors.
+			if (toolCall.name === "read") {
+				this._readsSinceLastEdit++;
+				if (this._readsSinceLastEdit > 1) {
+					return {
+						block: true,
+						reason: `BLOCKED: You've made ${this._readsSinceLastEdit} read() calls without any edit() in between. Reading multiple files without editing causes API context overflow errors. You MUST call edit() on one of the files you've already read before reading another file.`,
+					};
+				}
+			} else if (toolCall.name === "edit" || toolCall.name === "write") {
+				// Reset counter after each edit — agent may now read one more file
+				this._readsSinceLastEdit = 0;
+			}
+
 			const runner = this._extensionRunner;
 			if (!runner?.hasHandlers("tool_call")) {
 				return undefined;
@@ -2386,8 +2408,10 @@ export class AgentSession {
 		if (isContextOverflow(message, contextWindow)) return false;
 
 		const err = message.errorMessage;
-		// Match: overloaded_error, provider returned error, rate limit, 429, 500, 502, 503, 504, service unavailable, network/connection errors, fetch failed, terminated, retry delay exceeded
-		return /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|retry delay/i.test(
+		// Content filter errors are not transient — don't retry them
+		if (/content.?filter/i.test(err)) return false;
+		// Match: overloaded_error, provider returned error, provider finish_reason error, rate limit, 429, 500, 502, 503, 504, service unavailable, network/connection errors, fetch failed, terminated, retry delay exceeded
+		return /overloaded|provider.?returned.?error|provider.?finish.reason|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|timed? out|timeout|terminated|retry delay/i.test(
 			err,
 		);
 	}

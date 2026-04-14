@@ -378,6 +378,7 @@ def _copy_tau_config_to_container(
                         "id": model_id,
                         "name": _PROXY_MODEL_NAME,
                         "reasoning": False,
+                        "maxTokens": 4096,
                     },
                 ],
             },

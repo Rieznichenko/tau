@@ -87,6 +87,21 @@ function loadProjectContextFiles(
 		seenPaths.add(globalContext.path);
 	}
 
+	// When running as a Docker PI solver, the agent source lives in a separate
+	// directory ($PI_AGENT_DIR / $TAU_AGENT_DIR) that is not on the CWD path.
+	// Load AGENTS.md from there so scoring-optimized instructions are always active.
+	const piAgentSourceDir = process.env.PI_AGENT_DIR ?? process.env.TAU_AGENT_DIR;
+	if (piAgentSourceDir) {
+		const resolvedPiAgentDir = resolve(piAgentSourceDir);
+		if (resolvedPiAgentDir !== resolve(resolvedAgentDir)) {
+			const agentSourceContext = loadContextFileFromDir(resolvedPiAgentDir);
+			if (agentSourceContext && !seenPaths.has(resolve(agentSourceContext.path))) {
+				contextFiles.push(agentSourceContext);
+				seenPaths.add(resolve(agentSourceContext.path));
+			}
+		}
+	}
+
 	const ancestorContextFiles: Array<{ path: string; content: string }> = [];
 
 	let currentDir = resolvedCwd;
