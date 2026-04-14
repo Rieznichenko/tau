@@ -102,7 +102,7 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - Keep all existing #includes, utilities, and code style from the original file.
 - Implement ALL acceptance criteria items.
 - Use the SIMPLEST possible data structures (map/dict over struct, list over class hierarchy).
-- For CI/CD/workflow tasks: check `.github/workflows/` for existing YAML files to modify, and create new `.github/workflows/*.yml` files as needed.
+- For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
 ## RULE 2 — Cover ALL files the task implies
 
