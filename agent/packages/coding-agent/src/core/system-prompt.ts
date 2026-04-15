@@ -92,8 +92,8 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 
 **BUG FIX task** (says "Fix", "Stabilize", "Resolve", "Correct", "Ensure"): Read the file first, then make the SMALLEST targeted edit.
 - **NEVER change function signatures, component props/types, or class interfaces.** The reference always keeps the same public API.
-- When task says "internally managed refs" or "internal state/ref": add `const xRef = useRef(x)` and `useEffect(() => { xRef.current = x; }, [x])` INSIDE the component body. Use `xRef.current` in callbacks/render loops. **Do NOT add ref props to the props interface** — the refs are internal implementation details only.
-- When mutating objects (e.g. `note.hit = true`): do the mutation DIRECTLY on the object reference BEFORE calling setState. Then call setState with only the non-mutated fields (omit the array/object that was mutated from the return value).
+- When task says "internally managed refs" or "internal state/ref": add const xRef = useRef(x) and useEffect(() => { xRef.current = x; }, [x]) INSIDE the component body. Use xRef.current in callbacks/render loops. **Do NOT add ref props to the props interface** — the refs are internal implementation details only.
+- When mutating objects (e.g. note.hit = true): do the mutation DIRECTLY on the object reference BEFORE calling setState. Then call setState with only the non-mutated fields (omit the mutated array/object from the return value).
 - Never add React.memo, useMemo, useCallback unless the task explicitly mentions them.
 - Use short old_string (3-5 lines) — more reliable than large blocks.
 - If an edit() fails: re-read the file then retry once.
@@ -118,7 +118,7 @@ Count the acceptance criteria bullets. Each typically needs at least one edit ac
 - Match surrounding code's indent style, quote style, semicolons exactly
 - String literals: copy verbatim from task description
 - No cosmetic changes (blank lines, imports, comments) unless required
-- **NEVER add code comments** (`//` or `/* */`). The reference never adds comments — every comment line you add is a wasted unmatched line that hurts your score.
+- **NEVER add code comments** (// or /* */). The reference never adds comments — every comment line you add is a wasted unmatched line that hurts your score.
 
 ## RULE 4 — No explanations
 
