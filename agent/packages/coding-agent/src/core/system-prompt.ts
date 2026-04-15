@@ -117,7 +117,6 @@ Count the acceptance criteria bullets. Each typically needs at least one edit ac
 - Match surrounding code's indent style, quote style, semicolons exactly
 - String literals: copy verbatim from task description
 - No cosmetic changes (blank lines, imports, comments) unless required
-- **NEVER add code comments** (// or /* */). The reference never adds comments — every comment line you add is a wasted unmatched line that hurts your score.
 
 ## RULE 4 — No explanations
 
