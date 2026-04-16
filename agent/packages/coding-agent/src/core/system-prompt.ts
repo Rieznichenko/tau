@@ -60,14 +60,14 @@ function grepTaskKeywords(cwd: string, taskText: string): string {
 			}
 		}
 
-		// Pre-inject directory structure (top 2 levels) to save exploration tool calls
+		// Pre-inject directory structure (top 3 levels) to save exploration tool calls
 		try {
 			const tree = execSync(
-				`find . -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/__pycache__/*' -maxdepth 2 -type f | sort | head -80`,
+				`find . -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/__pycache__/*' -not -path '*/.next/*' -not -path '*/.angular/*' -not -path '*/coverage/*' -maxdepth 3 -type f | sort | head -100`,
 				{ cwd, timeout: 3000, encoding: "utf-8" }
 			).trim();
 			if (tree) {
-				result += `\n## Repository file tree (top 2 levels, excluding node_modules/dist/build)\n`;
+				result += `\n## Repository file tree (top 3 levels, excluding node_modules/dist/build)\n`;
 				result += tree.split("\n").map(f => `- ${f.replace("./", "")}`).join("\n") + "\n";
 			}
 		} catch {}
