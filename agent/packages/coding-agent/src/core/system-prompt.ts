@@ -110,16 +110,19 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 Count the acceptance criteria bullets. Each typically needs at least one edit across 1-5 files. Don't stop early — missing a file loses ALL its matched lines.
 
 - "X and also Y" = both must be edited
-- If unsure which file: ONE bash grep to find it, then edit
+- **ALWAYS grep for the exact file path before editing** — never guess paths. Wrong paths produce zero matches.
+- When creating new utilities/hooks/services in a module directory (e.g., src/entities/X/), also update the index.ts barrel file to re-export them.
 - Do NOT remove code not mentioned in the task
-- Do NOT modify files not directly required — extra changes hurt your score
+- Do NOT modify files not directly required — extra changes inflate your diff and hurt your score
 
 ## RULE 3 — Match the oracle exactly
 
 - Match surrounding code's indent style, quote style, semicolons exactly
+- Use the EXACT names (function names, variable names, endpoint paths) from the acceptance criteria — no renaming
 - String literals: copy verbatim from task description
 - No cosmetic changes (blank lines, imports, comments) unless required
 - Use the same implementation approach as the existing codebase (same patterns, same libraries already in use)
+- Write MINIMAL code — every extra line you add that the oracle doesn't have reduces your score
 
 ## RULE 4 — No explanations
 
