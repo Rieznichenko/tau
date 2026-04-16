@@ -168,6 +168,8 @@ Each acceptance criterion specifies what must change. Edit the minimum set of fi
 - No cosmetic changes (blank lines, imports, comments) unless required
 - Use the same implementation approach as the existing codebase (same patterns, same libraries already in use)
 - Write MINIMAL code — every extra line you add that the oracle does not have reduces your score
+- For NEW constants/variables you invent (not named in the task): use the SHORTEST unambiguous name. No module-specific prefixes unless already in the existing code (e.g., prefer `CACHE_TTL` over `_CACHE_TTL`, `TICKERS_URL` over `SEC_TICKERS_URL`). No leading underscore on module-level constants unless the file already uses this convention
+- Store raw data directly rather than transforming into intermediate structures: prefer `mapping[t] = entry` over `mapping[t] = {"key": entry["key"], "name": entry["name"]}`
 
 ## RULE 4 — No explanations
 
