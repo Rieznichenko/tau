@@ -9,37 +9,67 @@ import { formatSkillsForPrompt, type Skill } from "./skills.js";
 
 function grepTaskKeywords(cwd: string, taskText: string): string {
 	try {
-		const backtickMatches = taskText.match(/`([^`]{2,60})`/g)?.map(k => k.replace(/`/g, '')) || [];
+		// Count acceptance criteria bullets (lines starting with - that contain "must" or "should")
+		const criteriaLines = taskText.split("\n").filter(l => /^\s*-\s/.test(l) && (l.includes("must") || l.includes("should") || l.includes("new") || l.includes("add")));
+		const numCriteria = criteriaLines.length;
+		// Quoted strings in acceptance criteria are often exact file paths or function names
+		const quotedMatches = taskText.match(/`([^`]{2,80})`/g)?.map(k => k.replace(/`/g, '')) || [];
+		const backtickMatches = quotedMatches;
 		const camelMatches = taskText.match(/\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b/g) || [];
 		const snakeMatches = taskText.match(/\b[a-z]+_[a-z_]+\b/g) || [];
 		const filePathMatches = taskText.match(/\b[\w./\\-]+\.(?:ts|tsx|js|jsx|py|go|java|kt|rb|cs|rs|c|cpp|h|vue|sh|yaml|yml|toml|json|md)\b/g) || [];
 		const allKeywords = [...new Set([...filePathMatches, ...backtickMatches, ...camelMatches, ...snakeMatches])]
-			.filter(k => k.length >= 3 && k.length <= 60)
+			.filter(k => k.length >= 3 && k.length <= 80)
 			.filter(k => !['the', 'and', 'for', 'with', 'that', 'this', 'from', 'should', 'must', 'when', 'each', 'into', 'also'].includes(k.toLowerCase()))
-			.slice(0, 15);
-		if (allKeywords.length === 0) return "";
-		const fileHits = new Map<string, string[]>();
-		for (const keyword of allKeywords) {
-			try {
-				const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-				const result = execSync(
-					`grep -rl "${escaped}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.go" --include="*.java" --include="*.kt" --include="*.dart" --include="*.rb" --include="*.cs" --include="*.vue" --include="*.rs" --include="*.c" --include="*.cpp" --include="*.h" --include="*.sh" --include="*.yaml" --include="*.yml" --include="*.toml" . 2>/dev/null | grep -v node_modules | grep -v .git | grep -v dist/ | grep -v build/ | head -10`,
-					{ cwd, timeout: 3000, encoding: "utf-8" }
-				).trim();
-				if (result) {
-					for (const file of result.split("\n")) {
-						const clean = file.replace("./", "");
-						if (!fileHits.has(clean)) fileHits.set(clean, []);
-						fileHits.get(clean)!.push(keyword);
+			.slice(0, 20);
+
+		let result = "";
+
+		// Inject acceptance criteria count and diff budget
+		if (numCriteria > 0) {
+			const budgetLines = numCriteria <= 2 ? 60 : numCriteria <= 4 ? 120 : 200;
+			result += `\n## Task scope: ${numCriteria} acceptance criteria. Diff budget: ~${budgetLines} lines. If your diff exceeds ${budgetLines * 2} lines you are over-editing.\n`;
+		}
+
+		if (allKeywords.length > 0) {
+			const fileHits = new Map<string, string[]>();
+			for (const keyword of allKeywords) {
+				try {
+					const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+					const res = execSync(
+						`grep -rl "${escaped}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.go" --include="*.java" --include="*.kt" --include="*.dart" --include="*.rb" --include="*.cs" --include="*.vue" --include="*.rs" --include="*.c" --include="*.cpp" --include="*.h" --include="*.sh" --include="*.yaml" --include="*.yml" --include="*.toml" . 2>/dev/null | grep -v node_modules | grep -v .git | grep -v dist/ | grep -v build/ | head -10`,
+						{ cwd, timeout: 3000, encoding: "utf-8" }
+					).trim();
+					if (res) {
+						for (const file of res.split("\n")) {
+							const clean = file.replace("./", "");
+							if (!fileHits.has(clean)) fileHits.set(clean, []);
+							fileHits.get(clean)!.push(keyword);
+						}
 					}
+				} catch {}
+			}
+			if (fileHits.size > 0) {
+				const sorted = [...fileHits.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 20);
+				result += "\n## Files matching task keywords\n\nThese files contain identifiers from the task. Start here:\n";
+				for (const [file, keywords] of sorted) {
+					result += `- ${file} (${keywords.join(", ")})\n`;
 				}
-			} catch {}
+			}
 		}
-		const sorted = [...fileHits.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 20);
-		let result = "\n\n## Files matching task keywords\n\nThese files contain identifiers from the task. Start here:\n";
-		for (const [file, keywords] of sorted) {
-			result += `- ${file} (${keywords.join(", ")})\n`;
-		}
+
+		// Pre-inject directory structure (top 2 levels) to save exploration tool calls
+		try {
+			const tree = execSync(
+				`find . -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' -not -path '*/__pycache__/*' -maxdepth 2 -type f | sort | head -80`,
+				{ cwd, timeout: 3000, encoding: "utf-8" }
+			).trim();
+			if (tree) {
+				result += `\n## Repository file tree (top 2 levels, excluding node_modules/dist/build)\n`;
+				result += tree.split("\n").map(f => `- ${f.replace("./", "")}`).join("\n") + "\n";
+			}
+		} catch {}
+
 		// Always list .github/workflows/ files if they exist — relevant for CI/CD tasks
 		try {
 			const workflows = execSync(
@@ -53,7 +83,8 @@ function grepTaskKeywords(cwd: string, taskText: string): string {
 				}
 			}
 		} catch {}
-		return result + "\n";
+
+		return result ? result + "\n" : "";
 	} catch {}
 	return "";
 }
@@ -84,6 +115,10 @@ const TAU_SCORING_PREAMBLE = `# SN66 / tau strategy
 
 Your diff is scored line-by-line against a reference agent. Score = matched_lines / max(your_lines, ref_lines). Empty diff = 0.
 
+## CRITICAL: Keep your diff SMALL
+
+Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existing files INFLATES the denominator and LOWERS your score even when you match more lines. Every extra line you change that the reference does not = lower score. Prefer surgical edit() over wholesale write().
+
 ## CRITICAL CONSTRAINT — Maximum 2 read() calls between edits
 
 **NEVER make more than 2 read() calls without an intervening edit() or write().** Excess reads will be blocked. After 5 consecutive blocks the session terminates. When blocked: DO NOT apologize, DO NOT explain — immediately call edit() or write() on a file you've already read. The required pattern is: **read 1-2 files → edit/write one → read 1-2 more files → edit/write → done.**
@@ -94,24 +129,24 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - **NEVER change function signatures, component props/types, or class interfaces.** The reference always keeps the same public API.
 - When task says "internally managed" or "internal state/ref": add useRef/useState INSIDE the component WITHOUT changing the props interface.
 - Never add React.memo, useMemo, useCallback unless the task explicitly mentions them.
-- Use short old_string (3-5 lines) — more reliable than large blocks.
-- **If edit() fails (exact text not found): do NOT retry edit(). Switch immediately to write() — read the full file, then write() the complete corrected version.**
+- **Edit() failure recovery chain**: Try edit() with 5-line anchor. If that fails, try with a 2-3 line anchor (shorter, more unique). If still fails: write() the complete file.
 
-**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"): Read the file first, then write() the COMPLETE replacement.
+**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"):
+- **PLAN FIRST**: Before editing, identify exactly which lines to add/change in which files.
 - **For NEW files**: use write() to create from scratch.
-- **For EXISTING files**: use write() only if the file is under 300 lines. If over 300 lines, use edit() with a short old_string instead — large write() calls can exceed output token limits and fail.
-- Keep all existing #includes, utilities, and code style from the original file.
-- Implement ALL acceptance criteria items. New services/classes go in NEW files — write() them.
+- **For EXISTING files under 100 lines**: write() the complete replacement.
+- **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try a shorter 1-2 line anchor. Never write() a file over 100 lines — it inflates denominator catastrophically.
+- Keep all existing code style from the original file.
 - Use the SIMPLEST possible data structures and built-in APIs. NEVER add external libraries/packages not already imported in the project.
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
-## RULE 2 — Cover ALL files the task implies
+## RULE 2 — Touch ONLY the files explicitly named in acceptance criteria
 
-Count the acceptance criteria bullets. Each typically needs at least one edit across 1-5 files. Don't stop early — missing a file loses ALL its matched lines.
+Each acceptance criterion names specific files. Edit ONLY those files. Stop when each criterion is addressed.
 
 - "X and also Y" = both must be edited
 - **ALWAYS grep for the exact file path before editing** — never guess paths. Wrong paths produce zero matches.
-- When creating new utilities/hooks/services in a module directory (e.g., src/entities/X/), also update the index.ts barrel file to re-export them.
+- Do NOT create helper files, utility modules, or barrel re-exports unless the task explicitly names them
 - Do NOT remove code not mentioned in the task
 - Do NOT modify files not directly required — extra changes inflate your diff and hurt your score
 
@@ -122,7 +157,7 @@ Count the acceptance criteria bullets. Each typically needs at least one edit ac
 - String literals: copy verbatim from task description
 - No cosmetic changes (blank lines, imports, comments) unless required
 - Use the same implementation approach as the existing codebase (same patterns, same libraries already in use)
-- Write MINIMAL code — every extra line you add that the oracle doesn't have reduces your score
+- Write MINIMAL code — every extra line you add that the oracle does not have reduces your score
 
 ## RULE 4 — No explanations
 

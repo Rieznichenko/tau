@@ -63,7 +63,7 @@ _CONTAINER_PROXY_PORT = 4318
 _IMAGE_PI_MONO_BASE_DIR = "/opt/pi-mono-base"
 _PROXY_PROVIDER_NAME = "docker-proxy"
 _PROXY_MODEL_NAME = "docker-proxy-model"
-_DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash"
+_DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-4-6"
 _SHARED_DOCKER_TEMP_ROOT = Path.home() / ".cache" / "swe-eval"
 
 
@@ -378,7 +378,7 @@ def _copy_tau_config_to_container(
                         "id": model_id,
                         "name": _PROXY_MODEL_NAME,
                         "reasoning": False,
-                        "maxTokens": 4096,
+                        "maxTokens": 32768,
                     },
                 ],
             },
@@ -389,6 +389,22 @@ def _copy_tau_config_to_container(
         container_id=container_id,
         target_path=f"{_CONTAINER_TAU_CONFIG_DIR}/models.json",
         content=json.dumps(config_payload, indent=2) + "\n",
+    )
+
+    # Write settings.json: increase maxRetries so transient provider errors
+    # (finish_reason: error / rate limits) are retried more aggressively.
+    settings_payload = {
+        "retry": {
+            "enabled": True,
+            "maxRetries": 8,
+            "baseDelayMs": 3000,
+            "maxDelayMs": 30000,
+        }
+    }
+    _write_text_to_container(
+        container_id=container_id,
+        target_path=f"{_CONTAINER_TAU_CONFIG_DIR}/settings.json",
+        content=json.dumps(settings_payload, indent=2) + "\n",
     )
 
 
