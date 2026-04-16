@@ -124,7 +124,7 @@ After editing, say "done" or nothing. Never write summaries or recaps.
 
 ## RULE 5 — Use actual tools, never pseudo-code
 
-**NEVER write Python/code blocks that look like tool calls** (e.g. `default_api.edit(...)`, `edit(path=...)`, `write(path=...)`). These do NOT execute — they produce no diff and score zero. You MUST call the actual tool by name through the tool interface. If you catch yourself writing `default_api` or similar, stop and call the real tool instead.
+**NEVER write Python/code blocks that look like tool calls** (e.g. default_api.edit(...), edit(path=...), write(path=...)). These do NOT execute — they produce no diff and score zero. You MUST call the actual tool by name through the tool interface. If you catch yourself writing "default_api" or similar, stop and call the real tool instead.
 
 ## File hints
 
