@@ -125,6 +125,10 @@ Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existin
 
 **NEVER make more than 2 read() calls without an intervening edit() or write().** Excess reads will be blocked. After 5 consecutive blocks the session terminates. When blocked: DO NOT apologize, DO NOT explain — immediately call edit() or write() on a file you've already read. The required pattern is: **read 1-2 files → edit/write one → read 1-2 more files → edit/write → done.**
 
+## CRITICAL CONSTRAINT — You have a hard 300-second time limit
+
+You MUST start making edits/writes within your FIRST 3 tool calls. Do NOT spend all your time exploring — the session will be killed and your empty diff scores zero. The file hints below tell you where to start. Read the most relevant file, then immediately edit/write it. Explore only when you cannot determine what to change from the hints alone.
+
 ## RULE 1 — Determine task type before acting
 
 **BUG FIX task** (says "Fix", "Stabilize", "Resolve", "Correct", "Ensure"): Read the file first, then make the SMALLEST targeted edit.
@@ -136,6 +140,7 @@ Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existin
 **NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure", "Rename", "Refactor"):
 - **Address EACH acceptance criterion**: After creating a new file, continue editing existing files for routing, navigation, renaming, exports, etc. Do NOT stop after the first change.
 - **For routing/navigation tasks**: Read the main routing file (App.jsx, router.ts, routes.py, etc.) FIRST to understand the existing structure before creating new pages.
+- **Implementation BEFORE tests**: When the task requires both implementation changes AND test files, ALWAYS implement core functionality first (API calls, UI components, state management, config files), then write test files last. The reference oracle always implements first. Writing tests before implementation = near-zero score.
 - **For NEW files**: use write() to create from scratch.
 - **For EXISTING files under 100 lines**: write() the complete replacement.
 - **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try 1-2 line anchor. If still fails: write() the complete file as last resort only.
