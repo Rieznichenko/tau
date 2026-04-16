@@ -133,8 +133,9 @@ Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existin
 - Never add React.memo, useMemo, useCallback unless the task explicitly mentions them.
 - **Edit() failure recovery chain**: Try edit() with 5-line anchor. If that fails, try with a 2-3 line anchor (shorter, more unique). If still fails: write() the complete file.
 
-**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"):
-- **PLAN FIRST**: Before editing, identify exactly which lines to add/change in which files.
+**NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure", "Rename", "Refactor"):
+- **Address EACH acceptance criterion**: After creating a new file, continue editing existing files for routing, navigation, renaming, exports, etc. Do NOT stop after the first change.
+- **For routing/navigation tasks**: Read the main routing file (App.jsx, router.ts, routes.py, etc.) FIRST to understand the existing structure before creating new pages.
 - **For NEW files**: use write() to create from scratch.
 - **For EXISTING files under 100 lines**: write() the complete replacement.
 - **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try 1-2 line anchor. If still fails: write() the complete file as last resort only.
