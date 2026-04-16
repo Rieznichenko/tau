@@ -95,12 +95,13 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - When task says "internally managed" or "internal state/ref": add useRef/useState INSIDE the component WITHOUT changing the props interface.
 - Never add React.memo, useMemo, useCallback unless the task explicitly mentions them.
 - Use short old_string (3-5 lines) — more reliable than large blocks.
-- If an edit() fails: re-read the file then retry once.
+- **If edit() fails (exact text not found): do NOT retry edit(). Switch immediately to write() — read the full file, then write() the complete corrected version.**
 
 **NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"): Read the file first, then write() the COMPLETE replacement.
 - **Use write() to replace the entire file** with the old structure + new feature combined. Do NOT use multiple edit() calls to add a feature.
+- This applies to ALL files — even when updating existing code, read it then write() the full updated version.
 - Keep all existing #includes, utilities, and code style from the original file.
-- Implement ALL acceptance criteria items.
+- Implement ALL acceptance criteria items. New services/classes go in NEW files — write() them.
 - Use the SIMPLEST possible data structures (map/dict over struct, list over class hierarchy).
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
