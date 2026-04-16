@@ -146,6 +146,7 @@ The correct pattern is: tool call → tool call → tool call → done. There is
 - **For NEW files**: use write() to create from scratch.
 - **For EXISTING files under 100 lines**: write() the complete replacement.
 - **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try 1-2 line anchor. If still fails: write() the complete file as last resort only.
+- **Insert new features as ONE contiguous block**: The oracle always adds a new feature section as a single block of code. Use ONE edit() call to insert the complete new section (all JSX/code for that feature together). Multiple small edits to the same file fragment the diff and reduce match score.
 - Keep all existing code style from the original file.
 - Use the SIMPLEST possible data structures and built-in APIs. NEVER add external libraries/packages not already imported in the project.
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
