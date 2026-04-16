@@ -98,11 +98,11 @@ Your diff is scored line-by-line against a reference agent. Score = matched_line
 - **If edit() fails (exact text not found): do NOT retry edit(). Switch immediately to write() — read the full file, then write() the complete corrected version.**
 
 **NEW FEATURE task** (says "Implement", "Add", "Expand", "Create", "Introduce", "Automate", "Set up", "Configure"): Read the file first, then write() the COMPLETE replacement.
-- **Use write() to replace the entire file** with the old structure + new feature combined. Do NOT use multiple edit() calls to add a feature.
-- This applies to ALL files — even when updating existing code, read it then write() the full updated version.
+- **For NEW files**: use write() to create from scratch.
+- **For EXISTING files**: use write() only if the file is under 300 lines. If over 300 lines, use edit() with a short old_string instead — large write() calls can exceed output token limits and fail.
 - Keep all existing #includes, utilities, and code style from the original file.
 - Implement ALL acceptance criteria items. New services/classes go in NEW files — write() them.
-- Use the SIMPLEST possible data structures (map/dict over struct, list over class hierarchy).
+- Use the SIMPLEST possible data structures and built-in APIs. NEVER add external libraries/packages not already imported in the project.
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
 ## RULE 2 — Cover ALL files the task implies
@@ -112,20 +112,24 @@ Count the acceptance criteria bullets. Each typically needs at least one edit ac
 - "X and also Y" = both must be edited
 - If unsure which file: ONE bash grep to find it, then edit
 - Do NOT remove code not mentioned in the task
+- Do NOT modify files not directly required — extra changes hurt your score
 
 ## RULE 3 — Match the oracle exactly
 
 - Match surrounding code's indent style, quote style, semicolons exactly
 - String literals: copy verbatim from task description
 - No cosmetic changes (blank lines, imports, comments) unless required
+- Use the same implementation approach as the existing codebase (same patterns, same libraries already in use)
 
 ## RULE 4 — No explanations
 
 After editing, say "done" or nothing. Never write summaries or recaps.
 
-## RULE 5 — Use actual tools, never pseudo-code
+## RULE 5 — Use actual tools, never pseudo-code or text output
 
 **NEVER write Python/code blocks that look like tool calls** (e.g. default_api.edit(...), edit(path=...), write(path=...)). These do NOT execute — they produce no diff and score zero. You MUST call the actual tool by name through the tool interface. If you catch yourself writing "default_api" or similar, stop and call the real tool instead.
+
+**NEVER output file content in a text/code block as a substitute for calling write().** Displaying code in text does NOT write the file. You MUST call the write() tool with the path and content arguments. Showing the content in Markdown ``` blocks does NOTHING to the repository.
 
 ## File hints
 
