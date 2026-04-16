@@ -9,8 +9,10 @@ import { formatSkillsForPrompt, type Skill } from "./skills.js";
 
 function grepTaskKeywords(cwd: string, taskText: string): string {
 	try {
-		// Count acceptance criteria bullets (lines starting with - that contain "must" or "should")
-		const criteriaLines = taskText.split("\n").filter(l => /^\s*-\s/.test(l) && (l.includes("must") || l.includes("should") || l.includes("new") || l.includes("add")));
+		// Count acceptance criteria bullets — look for bullet points after "Acceptance criteria:" header
+		const acIdx = taskText.toLowerCase().indexOf("acceptance criteria");
+		const acSection = acIdx >= 0 ? taskText.slice(acIdx) : taskText;
+		const criteriaLines = acSection.split("\n").filter(l => /^\s*-\s.{10,}/.test(l));
 		const numCriteria = criteriaLines.length;
 		// Quoted strings in acceptance criteria are often exact file paths or function names
 		const quotedMatches = taskText.match(/`([^`]{2,80})`/g)?.map(k => k.replace(/`/g, '')) || [];
