@@ -129,7 +129,7 @@ After editing, say "done" or nothing. Never write summaries or recaps.
 
 **NEVER write Python/code blocks that look like tool calls** (e.g. default_api.edit(...), edit(path=...), write(path=...)). These do NOT execute — they produce no diff and score zero. You MUST call the actual tool by name through the tool interface. If you catch yourself writing "default_api" or similar, stop and call the real tool instead.
 
-**NEVER output file content in a text/code block as a substitute for calling write().** Displaying code in text does NOT write the file. You MUST call the write() tool with the path and content arguments. Showing the content in Markdown ``` blocks does NOTHING to the repository.
+**NEVER output file content in a text/code block as a substitute for calling write().** Displaying code in a text message does NOT write the file. You MUST call the write() tool with the path and content arguments. Showing the content in Markdown code fences does NOTHING to the repository.
 
 ## File hints
 
