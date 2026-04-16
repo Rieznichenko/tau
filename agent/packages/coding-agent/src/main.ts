@@ -5,6 +5,7 @@
  * createAgentSession() options. The SDK does the heavy lifting.
  */
 
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { type ImageContent, modelsAreEqual, supportsXhigh } from "@mariozechner/pi-ai";
 import chalk from "chalk";
@@ -38,6 +39,32 @@ import { allTools } from "./core/tools/index.js";
 import { runMigrations, showDeprecationWarnings } from "./migrations.js";
 import { InteractiveMode, runPrintMode, runRpcMode } from "./modes/index.js";
 import { initTheme, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
+
+/**
+ * Patch models.json to ensure maxTokens >= 32768.
+ * Prevents truncation of large write() calls when the subnet sets a low limit.
+ */
+function patchModelsJsonMaxTokens(modelsPath: string): void {
+	try {
+		if (!existsSync(modelsPath)) return;
+		const content = readFileSync(modelsPath, "utf-8");
+		const config = JSON.parse(content);
+		let changed = false;
+		for (const providerConfig of Object.values(config.providers ?? {})) {
+			for (const model of (providerConfig as any).models ?? []) {
+				if (typeof model.maxTokens === "number" && model.maxTokens < 32768) {
+					model.maxTokens = 32768;
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			writeFileSync(modelsPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+		}
+	} catch {
+		// If patching fails, continue without it
+	}
+}
 
 /**
  * Read all content from piped stdin.
@@ -694,6 +721,7 @@ export async function main(args: string[]) {
 	const settingsManager = SettingsManager.create(cwd, agentDir);
 	reportSettingsErrors(settingsManager, "startup");
 	const authStorage = AuthStorage.create();
+	patchModelsJsonMaxTokens(getModelsPath());
 	const modelRegistry = ModelRegistry.create(authStorage, getModelsPath());
 
 	const resourceLoader = new DefaultResourceLoader({

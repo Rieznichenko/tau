@@ -363,7 +363,7 @@ export class AgentSession {
 	/**
 	 * Cumulative read counter for the SN66/tau context-budget enforcement.
 	 * Counts total read() calls since the last edit/write. Resets on each edit/write.
-	 * Blocks reads after 4 unedited reads to allow parallel multi-file reads.
+	 * Blocks reads after 9 unedited reads to allow parallel multi-file reads.
 	 * After 5 consecutive blocks, throws to terminate the session and capture whatever was edited.
 	 */
 	private _readsSinceLastEdit = 0;
@@ -371,11 +371,11 @@ export class AgentSession {
 
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
-			// SN66 enforcement: block 5+ read() calls without intervening edits.
-			// Allows agent to read up to 4 files in parallel before being forced to edit.
+			// SN66 enforcement: block 10+ read() calls without intervening edits.
+			// Allows agent to read up to 9 files in parallel before being forced to edit.
 			if (toolCall.name === "read") {
 				this._readsSinceLastEdit++;
-				if (this._readsSinceLastEdit > 4) {
+				if (this._readsSinceLastEdit > 9) {
 					this._consecutiveBlocks++;
 					if (this._consecutiveBlocks >= 5) {
 						// Agent is stuck in an apology loop — terminate to save API budget.
