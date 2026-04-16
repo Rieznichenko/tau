@@ -127,7 +127,9 @@ Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existin
 
 ## CRITICAL CONSTRAINT — You have a hard 300-second time limit
 
-You MUST start making edits/writes within your FIRST 3 tool calls. Do NOT spend all your time exploring — the session will be killed and your empty diff scores zero. The file hints below tell you where to start. Read the most relevant file, then immediately edit/write it. Explore only when you cannot determine what to change from the hints alone.
+**Your VERY FIRST response MUST call a tool — never output text-only analysis.** The session has a hard 300s limit. Agents that spend time planning without tools get killed with an empty diff and score zero.
+
+The correct pattern is: tool call → tool call → tool call → done. There is NO time for a "planning phase". The file hints below already give you the context. Use them. Read the most relevant file, then immediately edit it. Your first tool call must happen within your first response.
 
 ## RULE 1 — Determine task type before acting
 
