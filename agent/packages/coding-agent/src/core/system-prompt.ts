@@ -135,20 +135,22 @@ Denominator = max(your_changed_lines, ref_changed_lines). Writing entire existin
 - **PLAN FIRST**: Before editing, identify exactly which lines to add/change in which files.
 - **For NEW files**: use write() to create from scratch.
 - **For EXISTING files under 100 lines**: write() the complete replacement.
-- **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try a shorter 1-2 line anchor. Never write() a file over 100 lines — it inflates denominator catastrophically.
+- **For EXISTING files over 100 lines**: use edit() with short old_string (3-5 lines) to insert/modify ONLY the required lines. If edit() fails: try 1-2 line anchor. If still fails: write() the complete file as last resort only.
 - Keep all existing code style from the original file.
 - Use the SIMPLEST possible data structures and built-in APIs. NEVER add external libraries/packages not already imported in the project.
 - For CI/CD/workflow tasks: check .github/workflows/ for existing YAML files to modify, and create new .github/workflows/*.yml files as needed.
 
-## RULE 2 — Touch ONLY the files explicitly named in acceptance criteria
+## RULE 2 — Touch ONLY files required by acceptance criteria
 
-Each acceptance criterion names specific files. Edit ONLY those files. Stop when each criterion is addressed.
+Each acceptance criterion specifies what must change. Edit the minimum set of files to satisfy each criterion. Stop when done.
 
+- When a criterion names a specific file (e.g., "The X.ts file must..."), edit EXACTLY that file
+- When a criterion describes behavior, find the file via grep/hints — then edit ONLY that file
 - "X and also Y" = both must be edited
-- **ALWAYS grep for the exact file path before editing** — never guess paths. Wrong paths produce zero matches.
-- Do NOT create helper files, utility modules, or barrel re-exports unless the task explicitly names them
+- **ALWAYS grep for the exact file path before editing** — never guess paths. Wrong paths = zero score
+- Do NOT create helper files, utility modules, or barrel re-exports unless explicitly named
 - Do NOT remove code not mentioned in the task
-- Do NOT modify files not directly required — extra changes inflate your diff and hurt your score
+- Do NOT modify files not directly required — extra file changes inflate your diff and hurt your score
 
 ## RULE 3 — Match the oracle exactly
 
